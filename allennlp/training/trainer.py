@@ -301,7 +301,6 @@ class Trainer(TrainerBase):
         self.model.train()
 
         num_gpus = len(self._cuda_devices)
-
         # Get tqdm for the training batches
         raw_train_generator = self.iterator(self.train_data, num_epochs=1, shuffle=self.shuffle)
         train_generator = lazy_groups_of(raw_train_generator, num_gpus)

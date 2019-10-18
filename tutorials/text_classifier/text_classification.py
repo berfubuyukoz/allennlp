@@ -13,7 +13,8 @@ from allennlp.training.metrics import CategoricalAccuracy
 from allennlp.nn.util import get_text_field_mask
 import numpy as np
 from allennlp.data.dataset_readers import DatasetReader
-from allennlp.data.tokenizers import Tokenizer, WordTokenizer
+from allennlp.data.tokenizers import Tokenizer, SpacyTokenizer
+
 from allennlp.data.token_indexers import TokenIndexer, SingleIdTokenIndexer, ELMoTokenCharactersIndexer
 from allennlp.data.iterators import BucketIterator
 from allennlp.data.fields import TextField, LabelField
@@ -29,7 +30,7 @@ class SentimentDatasetReader(DatasetReader):
                  tokenizer: Tokenizer = None,
                  token_indexers: Dict[str, TokenIndexer] = None) -> None:
         super().__init__(lazy=False)
-        self._tokenizer = tokenizer or WordTokenizer()
+        self._tokenizer = tokenizer or SpacyTokenizer()
         self._token_indexers = token_indexers or {"tokens": SingleIdTokenIndexer()}
 
     def get_label_column_name(self):
@@ -76,7 +77,7 @@ class ProtestNewsDatasetReader(DatasetReader):
                  tokenizer: Tokenizer = None,
                  token_indexers: Dict[str, TokenIndexer] = None) -> None:
         super().__init__(lazy=False)
-        self._tokenizer = tokenizer or WordTokenizer()
+        self._tokenizer = tokenizer or SpacyTokenizer()
         self._token_indexers = token_indexers or {"tokens": SingleIdTokenIndexer()}
 
     def get_label_column_name(self):
@@ -174,8 +175,9 @@ validation_file_path = "/home/mkbb/Desktop/fast_reach/data/protestnews_data/edit
 options_file = "https://allennlp.s3.amazonaws.com/models/elmo/2x4096_512_2048cnn_2xhighway/elmo_2x4096_512_2048cnn_2xhighway_options.json"
 weight_file = "https://allennlp.s3.amazonaws.com/models/elmo/2x4096_512_2048cnn_2xhighway/elmo_2x4096_512_2048cnn_2xhighway_weights.hdf5"
 
+tokenizer = SpacyTokenizer()
 elmo_token_indexer = ELMoTokenCharactersIndexer()
-reader = ProtestNewsDatasetReader(token_indexers={'tokens': elmo_token_indexer})
+reader = ProtestNewsDatasetReader(tokenizer=tokenizer,token_indexers={'tokens': elmo_token_indexer})
 train_dataset = reader.read(train_file_path)
 validation_dataset = reader.read(validation_file_path)
 vocab = Vocabulary.from_instances(train_dataset + validation_dataset)
@@ -192,7 +194,7 @@ word_embeddings = BasicTextFieldEmbedder({"tokens": token_embedding})
 # },
 # input_size: The number of expected features in the input `x`
 # hidden_size: The number of features in the hidden state `h`
-input_size = 1024
+input_size = 1024 # the output vector size of the ELMo model we are using is 512, and there are two directions (forward and backward).
 hidden_size = 512
 
 lstm = PytorchSeq2VecWrapper(torch.nn.LSTM(input_size=input_size, hidden_size=hidden_size, batch_first=True))
