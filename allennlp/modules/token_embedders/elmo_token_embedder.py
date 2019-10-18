@@ -97,6 +97,7 @@ class ElmoTokenEmbedder(TokenEmbedder):
         """
         elmo_output = self._elmo(inputs, word_inputs)
         elmo_representations = elmo_output["elmo_representations"][0]
+        del elmo_output
         if self._projection:
             projection = self._projection
             for _ in range(elmo_representations.dim() - 2):
