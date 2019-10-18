@@ -282,7 +282,7 @@ class Trainer(TrainerBase):
                 )
             loss = None
 
-        return loss
+        return output_dict
 
     def _train_epoch(self, epoch: int) -> Dict[str, float]:
         """
@@ -324,8 +324,9 @@ class Trainer(TrainerBase):
 
             self.optimizer.zero_grad()
 
-            loss = self.batch_loss(batch_group, for_training=True)
-
+            output_dict = self.batch_loss(batch_group, for_training=True)
+            loss = output_dict["loss"]
+            accuracy = output_dict["accuracy"]
             if torch.isnan(loss):
                 raise ValueError("nan loss encountered")
 
@@ -372,6 +373,7 @@ class Trainer(TrainerBase):
             train_generator_tqdm.set_description(description, refresh=False)
 
             # Log parameter values to Tensorboard
+            metrics = output_dict
             if self._tensorboard.should_log_this_batch():
                 self._tensorboard.log_parameter_and_gradient_statistics(self.model, batch_grad_norm)
                 self._tensorboard.log_learning_rates(self.model, self.optimizer)
@@ -399,7 +401,8 @@ class Trainer(TrainerBase):
                 self._save_checkpoint(
                     "{0}.{1}".format(epoch, training_util.time_to_str(int(last_save_time)))
                 )
-        metrics = training_util.get_metrics(self.model, train_loss, batches_this_epoch, reset=True)
+        # metrics = training_util.get_metrics(self.model, train_loss, batches_this_epoch, reset=True)
+        metrics = output_dict
         metrics["cpu_memory_MB"] = peak_cpu_usage
         for (gpu_num, memory) in gpu_usage:
             metrics["gpu_" + str(gpu_num) + "_memory_MB"] = memory
