@@ -13,8 +13,8 @@ class F1Measure(FBetaMeasure):
     calculated for this tag only.
     """
 
-    def __init__(self, positive_label: int) -> None:
-        super().__init__(beta=1, labels=[positive_label])
+    def __init__(self, positive_label: int, average:str=None) -> None:
+        super().__init__(beta=1, labels=[positive_label], average=average)
         self._positive_label = positive_label
 
     def get_metric(self, reset: bool = False) -> Tuple[float, float, float]:
