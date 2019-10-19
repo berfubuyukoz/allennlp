@@ -38,7 +38,7 @@ class F1Measure(FBetaMeasure):
         recall = metric["recall"]
         fscore = metric["fscore"]
 
-        return precision, recall, fscore
+        return fscore
     @property
     def _true_positives(self):
         # When this metric is never called, `self._true_positive_sum` is None,
