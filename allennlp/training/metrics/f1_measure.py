@@ -29,11 +29,11 @@ class F1Measure(FBetaMeasure):
         metric = super().get_metric(reset=reset)
         # Because we just care about the class `positive_label`
         # there is just one item in `precision`, `recall`, `fscore`
-        # precision = metric["precision"][0]
-        # recall = metric["recall"][0]
-        # fscore = metric["fscore"][0]
+        precision = metric["precision"][0]
+        recall = metric["recall"][0]
+        fscore = metric["fscore"][0]
         # return precision, recall, fscore
-        return metric
+        return fscore
 
     @property
     def _true_positives(self):

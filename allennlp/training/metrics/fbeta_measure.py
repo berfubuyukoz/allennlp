@@ -210,10 +210,8 @@ class FBetaMeasure(Metric):
             }
         else:
             metric = {"precision": precision.item(), "recall": recall.item(), "fscore": fscore.item()}
-        precision = metric["precision"]
-        recall = metric["recall"]
-        fscore = metric["fscore"]
-        return precision, recall, fscore
+
+        return metric
 
     @overrides
     def reset(self) -> None:
