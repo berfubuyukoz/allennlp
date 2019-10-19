@@ -203,13 +203,17 @@ class FBetaMeasure(Metric):
             self.reset()
 
         if self._average is None:
-            return {
+            metric = {
                 "precision": precision.tolist(),
                 "recall": recall.tolist(),
                 "fscore": fscore.tolist(),
             }
         else:
-            return {"precision": precision.item(), "recall": recall.item(), "fscore": fscore.item()}
+            metric = {"precision": precision.item(), "recall": recall.item(), "fscore": fscore.item()}
+        precision = metric["precision"][0]
+        recall = metric["recall"][0]
+        fscore = metric["fscore"][0]
+        return precision, recall, fscore
 
     @overrides
     def reset(self) -> None:
