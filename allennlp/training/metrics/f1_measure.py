@@ -17,7 +17,7 @@ class F1Measure(FBetaMeasure):
         super().__init__(beta=1, labels=[positive_label], average=average)
         self._positive_label = positive_label
 
-    def get_metric(self, reset: bool = False) -> Tuple[float, float, float]:
+    def get_metric(self, reset: bool = False) -> float:
         """
         Returns
         -------
