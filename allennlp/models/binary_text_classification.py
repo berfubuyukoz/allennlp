@@ -7,29 +7,24 @@ from allennlp.modules.seq2vec_encoders import Seq2VecEncoder
 from allennlp.nn.util import get_text_field_mask
 from allennlp.models import Model
 from allennlp.modules.text_field_embedders import TextFieldEmbedder
-from allennlp.training.metrics import CategoricalAccuracy, FBetaMeasure
+from sklearn.metrics import accuracy_score, precision_recall_fscore_support
 import numpy as np
 
 class TextClassifier(Model):
     def __init__(self,
                  word_embeddings: TextFieldEmbedder,
                  encoder: Seq2VecEncoder,
-                 vocab: Vocabulary,
+                 decoder: torch.nn.Module(),
+                 vocab: Vocabulary
                  ) -> None:  # initializer: InitializerApplicator = InitializerApplicator(),
         # regularizer: Optional[RegularizerApplicator] = None
         # super().__init__(vocab, regularizer)
         super().__init__(vocab)
         self.word_embeddings = word_embeddings
         self.encoder = encoder
-        self.num_classes = self.vocab.get_vocab_size("labels")
-        self.classifier_input_dim = self.encoder.get_output_dim()
-        self.classification_layer = torch.nn.Linear(self.classifier_input_dim, self.num_classes)
-        self.accuracy = CategoricalAccuracy()
-        self.fmacro = FBetaMeasure(average='macro')
+        self.decoder = decoder
         self.loss = torch.nn.CrossEntropyLoss()
-        self.metrics = {}
-        self.metrics["accuracy"] = self.accuracy
-        self.metrics["fmacro"] = self.fmacro
+
         # initializer(self)
 
     def forward(self,
@@ -40,7 +35,7 @@ class TextClassifier(Model):
         mask = get_text_field_mask(text)
         state = self.encoder(embeddings, mask)  # called state since it returns final hidden state vector
         del embeddings
-        logits = self.classification_layer(state)
+        logits = self.decoder(state)
         del state
 
         probabilities = F.softmax(logits)
@@ -50,13 +45,20 @@ class TextClassifier(Model):
         if label is not None:
             loss = self.loss(logits, label.squeeze(-1))
             output_dict["loss"] = loss
-            self.accuracy(logits, label.squeeze(-1))
-            self.fmacro(logits, label.squeeze(-1))
-        return output_dict
+        self.output_dict = output_dict
+        self.label = label
 
     def get_metrics(self, reset: bool = False) -> Dict[str, float]:
-        # compute accuracy using intermediate vars that were already updated behind the scene by CategoricalAccuracy.__call__().
-        return {metric_name: metric.get_metric(reset) for metric_name, metric in self.metrics.items()}
+        logits = self.output_dict['logits']
+        label = self.label
+        metrics = {}
+        acc = accuracy_score(logits.numpy(), label.numpy())
+        prf = precision_recall_fscore_support(logits, label, average='macro')
+        metrics['acc'] = acc
+        metrics['prec'] = prf[0]
+        metrics['rec'] = prf[1]
+        metrics['fmacro'] = prf[2]
+        return metrics
 
     def decode(self, output_dict: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
         predictions = output_dict['probabilities'].cpu().data.numpy()

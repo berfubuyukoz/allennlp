@@ -1,17 +1,16 @@
 
 """" ======================================================ARGUMENTS=================================================== """
-
 indexer = 'elmochar'  # elmochar, singleid
 embedding_type = 'elmo'  # elmo,glove
 encoder_type = 'lstm'  # lstm,bag
 decoder_type = 'linear'
 data = 'protestnews'  # protestnews, sentiment
 
-train_file = '/home/mkbb/Desktop/Berfu/thesis/new_stuff/fast_reach/data/protestnews_data/edited_jsons/train.json'
-validation_file = '/home/mkbb/Desktop/Berfu/thesis/new_stuff/fast_reach/data/protestnews_data/edited_jsons/dev.json'
+train_file = '/content/train.json'
+validation_file = '/content/dev.json'
 out_model_name = 'elmo_freeze_india_2'
 vocab_folder_name = 'vocabulary'
-out_dir = '/home/mkbb/Desktop/allennlp_try'
+out_dir = '/content/elmo_freeze/'
 label_cols = ["0", "1"]
 
 #train arg
@@ -39,6 +38,7 @@ import torch.nn.functional as F
 import sys
 sys.path.insert(0, "allennlp")
 
+import argparse
 from allennlp.data.tokenizers import SpacyTokenizer
 from allennlp.data.token_indexers import ELMoTokenCharactersIndexer, SingleIdTokenIndexer
 from allennlp.data.vocabulary import Vocabulary
@@ -49,6 +49,19 @@ from allennlp.data.iterators import BucketIterator
 from allennlp.common import Params
 from allennlp.modules.token_embedders import Embedding
 from allennlp.modules.seq2vec_encoders import PytorchSeq2VecWrapper, BagOfEmbeddingsEncoder
+
+parser = argparse.ArgumentParser()
+## Required parameters
+parser.add_argument("--indexer", default=None, type=str, required=True,
+                    help="elmochar, singleid")
+parser.add_argument("--embedding_type", default=None, type=str, required=True,
+                    help="elmo,glove")
+parser.add_argument("--encoder_type", default=None, type=str, required=True,
+                    help="lstm, bag")
+parser.add_argument("--decoder_type", default="linear", type=str, required=False,
+                    help="linear")
+parser.add_argument("--model_name_or_path", default=None, type=str, required=True,
+                    help="Required if --do_train. Path to pre-trained model or shortcut name selected in the list: " + ", ".join(ALL_MODELS))
 
 from allennlp.data.dataset_readers import ProtestNewsDatasetReader, SentimentDatasetReader
 from tutorials.text_classifier.config import Config
@@ -120,7 +133,20 @@ elif encoder_type == 'lstm':
     encoder = PytorchSeq2VecWrapper(
         torch.nn.LSTM(word_embeddings.get_output_dim(), config.hidden_sz, bidirectional=True, batch_first=True))
 
-model = TextClassifier(word_embeddings, encoder, vocab)
+
+num_classes = vocab.get_vocab_size("labels")
+decoder_input_dim = encoder.get_output_dim()
+
+if decoder_type=='linear':
+    decoder = torch.nn.Linear(decoder_input_dim, num_classes)
+
+accuracy = CategoricalAccuracy()
+fmacro = FBetaMeasure(average='macro')
+metrics = {}
+metrics["accuracy"] = self.accuracy
+metrics["fmacro"] = self.fmacro
+
+model = TextClassifier(word_embeddings, encoder, decoder, vocab)
 
 if USE_GPU:
     model.cuda()
