@@ -386,7 +386,8 @@ def get_metrics(
     the total loss divided by the ``num_batches`` so that
     the ``"loss"`` metric is "average loss per batch".
     """
-    metrics = model.get_metrics(reset=reset)
+    model.decode(reset=reset)
+    metrics = model.output_dict['metrics']
     metrics["loss"] = float(total_loss / num_batches) if num_batches > 0 else 0.0
     return metrics
 
@@ -421,7 +422,8 @@ def evaluate(
             output_dict = model(**batch)
             loss = output_dict.get("loss")
 
-            metrics = model.get_metrics()
+            model.decode()
+            metrics = model.output_dict['metrics']
 
             if loss is not None:
                 loss_count += 1
@@ -455,14 +457,14 @@ def evaluate(
             )
             generator_tqdm.set_description(description, refresh=False)
 
-        final_metrics = model.get_metrics(reset=True)
-        if loss_count > 0:
-            # Sanity check
-            if loss_count != batch_count:
-                raise RuntimeError(
-                    "The model you are trying to evaluate only sometimes " + "produced a loss!"
-                )
-            final_metrics["loss"] = total_loss / total_weight
+        model.decode(reset=True)
+        final_metrics = model.output_dict['metrics']
+        # Sanity check
+        if loss_count != batch_count:
+            raise RuntimeError(
+                "The model you are trying to evaluate only sometimes " + "produced a loss!"
+            )
+        final_metrics["loss"] = total_loss / total_weight
 
         return final_metrics
 

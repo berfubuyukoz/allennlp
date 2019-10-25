@@ -46,32 +46,26 @@ class TextClassifier(Model):
             loss = self.loss(logits, label.squeeze(-1))
             output_dict["loss"] = loss
         self.output_dict = output_dict
-        self.label = label
+        self.labels = label
 
     def get_metrics(self, reset: bool = False) -> Dict[str, float]:
-        logits = self.output_dict['logits']
-        label = self.label
+        labels = self.labels
+        labels_list = labels.squeeze(-1).cpu().data.numpy()
+        predicted_labels = self.output_dict['predicted_labels']
+        acc = accuracy_score(predicted_labels, labels_list)
+        prf = precision_recall_fscore_support(predicted_labels, labels_list, average='macro')
         metrics = {}
-        np_logits = logits.cpu().data.numpy()
-        np_label = label.squeeze(-1).cpu().data.numpy()
-        print("logits")
-        print(np_logits)
-        print("labels")
-        print(np_label)
-        acc = accuracy_score(np_logits, np_label)
-        prf = precision_recall_fscore_support(np_logits, np_label, average='macro')
         metrics['acc'] = acc
         metrics['prec'] = prf[0]
         metrics['rec'] = prf[1]
         metrics['fmacro'] = prf[2]
         return metrics
 
-    def decode(self, output_dict: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
-        predictions = output_dict['probabilities'].cpu().data.numpy()
+    def decode(self, reset: bool = False):
+        predictions = self.output_dict['probabilities'].cpu().data.numpy()
         argmax_indices = np.argmax(predictions, axis=-1)
         labels = [self.vocab.get_token_from_index(x, namespace="labels")
                   for x in argmax_indices]
-        output_dict['label'] = labels
-        metrics = self.get_metrics()
-        output_dict['metrics'] = metrics
-        return output_dict
+        self.output_dict['predicted_labels'] = labels
+        metrics = self.get_metrics(reset=reset)
+        self.output_dict['metrics'] = metrics
