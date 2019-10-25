@@ -159,7 +159,7 @@ if args.embedding_type == 'glove':
     params = Params(params=param_dict)
     token_embedding = Embedding.from_params(vocab=vocab, params=params)
 elif args.embedding_type == 'elmo':
-    token_embedding = ElmoTokenEmbedder(args.options_file, args.weight_file, requires_grad=args.finetune_embeddings)
+    token_embedding = ElmoTokenEmbedder(args.options_file, args.weights_file, requires_grad=args.finetune_embeddings)
 
 word_embeddings = BasicTextFieldEmbedder({"tokens": token_embedding})
 
