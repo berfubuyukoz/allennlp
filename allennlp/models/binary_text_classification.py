@@ -52,7 +52,7 @@ class TextClassifier(Model):
         logits = self.output_dict['logits']
         label = self.label
         metrics = {}
-        acc = accuracy_score(logits.numpy(), label.numpy())
+        acc = accuracy_score(logits.cpu().data.numpy(), label.cpu().data.numpy())
         prf = precision_recall_fscore_support(logits, label, average='macro')
         metrics['acc'] = acc
         metrics['prec'] = prf[0]
