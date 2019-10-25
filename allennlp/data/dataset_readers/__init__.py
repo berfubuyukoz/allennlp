@@ -48,3 +48,6 @@ from allennlp.data.dataset_readers.simple_language_modeling import (
 from allennlp.data.dataset_readers.babi import BabiReader
 from allennlp.data.dataset_readers.copynet_seq2seq import CopyNetDatasetReader
 from allennlp.data.dataset_readers.text_classification_json import TextClassificationJsonReader
+from allennlp.data.dataset_readers.protestnews import ProtestNewsDatasetReader
+from allennlp.data.dataset_readers.sentiment import SentimentDatasetReader
+

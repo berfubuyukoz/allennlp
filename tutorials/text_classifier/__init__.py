@@ -1,0 +1,1 @@
+from tutorials.text_classifier.config import Config
