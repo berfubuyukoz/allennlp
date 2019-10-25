@@ -87,7 +87,7 @@ parser.add_argument("--max_seq_len", default=128, type=int, required=False,
                     help="max seq len")
 parser.add_argument("--max_vocab_size", default=100000, type=int, required=False,
                     help="max vocab size")
-parser.add_argument("--validaton_metric", default="+fmacro", type=str, required=False,
+parser.add_argument("--validation_metric", default="+fmacro", type=str, required=False,
                     help="validation metric to watch.")
 
 ## Params for specific cases
