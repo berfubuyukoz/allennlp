@@ -99,7 +99,7 @@ parser.add_argument("--options_file", default=None, type=str, required=False,
                     help="options file for elmo")
 parser.add_argument("--weights_file", default=None, type=str, required=False,
                     help="weight file for elmo")
-parser.add_argument("--finetine_embeddings", action='store_true',
+parser.add_argument("--finetune_embeddings", action='store_true',
                         help="Whether to finetune elmo embeddings.")
 args = parser.parse_args()
 
