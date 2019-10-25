@@ -61,6 +61,8 @@ parser.add_argument("--embedding_type", default=None, type=str, required=True,
                     help="elmo,glove")
 parser.add_argument("--encoder_type", default=None, type=str, required=True,
                     help="lstm, bag")
+parser.add_argument("--decoder_type", default=None, type=str, required=True,
+                    help="linear")
 parser.add_argument("--data_type", default=None, type=str, required=True,
                     help="protestnews, sentiment")
 parser.add_argument("--train_file_path", default=None, type=str, required=True,
@@ -95,7 +97,7 @@ parser.add_argument("--hidden_sz", default=64, type=int, required=False,
 ## Params for elmo
 parser.add_argument("--options_file", default=None, type=str, required=False,
                     help="options file for elmo")
-parser.add_argument("--weight_file", default=None, type=str, required=False,
+parser.add_argument("--weights_file", default=None, type=str, required=False,
                     help="weight file for elmo")
 parser.add_argument("--finetine_embeddings", action='store_true',
                         help="Whether to finetune elmo embeddings.")
