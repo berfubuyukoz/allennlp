@@ -169,7 +169,6 @@ elif args.encoder_type == 'lstm':
     encoder = PytorchSeq2VecWrapper(
         torch.nn.LSTM(word_embeddings.get_output_dim(), config.hidden_sz, bidirectional=True, batch_first=True))
 
-
 num_classes = vocab.get_vocab_size("labels")
 decoder_input_dim = encoder.get_output_dim()
 

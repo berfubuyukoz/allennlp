@@ -38,7 +38,7 @@ class TextClassifier(Model):
         logits = self.decoder(state)
         del state
 
-        probabilities = F.softmax(logits)
+        probabilities = F.softmax(logits, dim=-1)
         output_dict = {}
         output_dict["logits"] = logits
         output_dict["probabilities"] = probabilities
