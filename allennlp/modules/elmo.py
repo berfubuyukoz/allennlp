@@ -39,6 +39,8 @@ logger = logging.getLogger(__name__)
 
 class Elmo(torch.nn.Module):
     """
+    Berfu's note: num_output_representations ile options["lstm"]["n_layers"] ayni seyler degil ve esit olmak zorunda degiller.
+    
     Compute ELMo representations using a pre-trained bidirectional language model.
 
     See "Deep contextualized word representations", Peters et al. for details.
@@ -182,7 +184,7 @@ class Elmo(torch.nn.Module):
 
         # run the biLM
         bilm_output = self._elmo_lstm(reshaped_inputs, reshaped_word_inputs)
-        layer_activations = bilm_output["activations"]
+        layer_activations = bilm_output["activations"] #(num_layers of elmo_lstm, bs, seqlen, embedding_dim)
         mask_with_bos_eos = bilm_output["mask"]
 
         # compute the elmo representations
