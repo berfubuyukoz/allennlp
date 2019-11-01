@@ -220,7 +220,7 @@ class Elmo(torch.nn.Module):
             mask = processed_mask
             elmo_representations = representations
 
-        return {"elmo_representations": elmo_representations, "mask": mask}
+        return {"elmo_representations": elmo_representations, "mask": mask, "layer_activations": layer_activations}
 
     # The add_to_archive logic here requires a custom from_params.
     @classmethod
