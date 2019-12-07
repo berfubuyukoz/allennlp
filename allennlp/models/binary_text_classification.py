@@ -48,7 +48,7 @@ class TextClassifier(Model):
         self.output_dict = output_dict
         self.labels = label
 
-    def get_metrics(self, reset: bool = False) -> Dict[str, float]:
+    def get_metrics(self) -> Dict[str, float]:
         labels = self.labels
         labels_list = labels.squeeze(-1).cpu().data.numpy()
         predicted_labels = self.output_dict['predicted_labels']
@@ -62,11 +62,11 @@ class TextClassifier(Model):
         metrics['fmacro'] = prf[2]
         return metrics
 
-    def decode(self, reset: bool = False):
+    def decode(self):
         predictions = self.output_dict['probabilities'].cpu().data.numpy()
         argmax_indices = np.argmax(predictions, axis=-1)
         labels = [self.vocab.get_token_from_index(x, namespace="labels")
                   for x in argmax_indices]
         self.output_dict['predicted_labels'] = labels
-        metrics = self.get_metrics(reset=reset)
+        metrics = self.get_metrics()
         self.output_dict['metrics'] = metrics

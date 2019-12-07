@@ -379,16 +379,15 @@ def rescale_gradients(model: Model, grad_norm: Optional[float] = None) -> Option
 
 
 def get_metrics(
-    model: Model, total_loss: float, num_batches: int, reset: bool = False
-) -> Dict[str, float]:
+    model: Model) -> Dict[str, float]:
     """
     Gets the metrics but sets ``"loss"`` to
     the total loss divided by the ``num_batches`` so that
     the ``"loss"`` metric is "average loss per batch".
     """
-    model.decode(reset=reset)
+    model.decode()
     metrics = model.output_dict['metrics']
-    metrics["loss"] = float(total_loss / num_batches) if num_batches > 0 else 0.0
+    # metrics["loss"] = float(total_loss / num_batches) if num_batches > 0 else 0.0
     return metrics
 
 

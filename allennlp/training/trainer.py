@@ -317,6 +317,10 @@ class Trainer(TrainerBase):
         logger.info("Training")
         train_generator_tqdm = Tqdm.tqdm(train_generator, total=num_training_batches)
         cumulative_batch_size = 0
+        epoch_acc=0
+        epoch_prec=0
+        epoch_rec=0
+        epoch_fmacro=0
         for batch_group in train_generator_tqdm:
             batches_this_epoch += 1
             self._batch_num_total += 1
@@ -366,7 +370,12 @@ class Trainer(TrainerBase):
                 self._moving_average.apply(batch_num_total)
 
             # Update the description with the latest metrics
-            metrics = training_util.get_metrics(self.model, train_loss, batches_this_epoch)
+            metrics = training_util.get_metrics(self.model)
+            metrics["loss"] = loss.item()
+            epoch_acc += metrics['acc']
+            epoch_prec += metrics['prec']
+            epoch_rec += metrics['rec']
+            epoch_fmacro += metrics['fmacro']
             description = training_util.description_from_metrics(metrics)
 
             train_generator_tqdm.set_description(description, refresh=False)
@@ -399,7 +408,20 @@ class Trainer(TrainerBase):
                 self._save_checkpoint(
                     "{0}.{1}".format(epoch, training_util.time_to_str(int(last_save_time)))
                 )
-        metrics = training_util.get_metrics(self.model, train_loss, batches_this_epoch, reset=True)
+
+        epoch_acc = float(epoch_acc/batches_this_epoch) if batches_this_epoch>0 else 0.0
+        epoch_prec = float(epoch_prec/batches_this_epoch) if batches_this_epoch>0 else 0.0
+        epoch_rec = float(epoch_rec/batches_this_epoch) if batches_this_epoch>0 else 0.0
+        epoch_fmacro = float(epoch_fmacro/batches_this_epoch) if batches_this_epoch>0 else 0.0
+        epoch_loss = float(train_loss/batches_this_epoch) if batches_this_epoch>0 else 0.0
+
+        metrics = {}
+        metrics["loss"] = epoch_loss
+        metrics['acc'] = epoch_acc
+        metrics['prec'] = epoch_prec
+        metrics['rec'] = epoch_rec
+        metrics["fmacro"] = epoch_fmacro    
+        # metrics = training_util.get_metrics(self.model)
         metrics["cpu_memory_MB"] = peak_cpu_usage
         for (gpu_num, memory) in gpu_usage:
             metrics["gpu_" + str(gpu_num) + "_memory_MB"] = memory
@@ -432,6 +454,10 @@ class Trainer(TrainerBase):
         val_generator_tqdm = Tqdm.tqdm(val_generator, total=num_validation_batches)
         batches_this_epoch = 0
         val_loss = 0
+        val_acc=0
+        val_prec=0
+        val_rec=0
+        val_fmacro=0
         for batch_group in val_generator_tqdm:
 
             loss = self.batch_loss(batch_group, for_training=False)
@@ -445,15 +471,29 @@ class Trainer(TrainerBase):
                 val_loss += loss.detach().cpu().numpy()
 
             # Update the description with the latest metrics
-            val_metrics = training_util.get_metrics(self.model, val_loss, batches_this_epoch)
+            val_metrics = training_util.get_metrics(self.model)
             description = training_util.description_from_metrics(val_metrics)
             val_generator_tqdm.set_description(description, refresh=False)
+            val_acc+=val_metrics['acc']
+            val_prec+=val_metrics['prec']
+            val_rec+=val_metrics['rec']
+            val_fmacro+=val_fmacro['fmacro']
 
+
+        val_acc = float(val_acc/batches_this_epoch) if batches_this_epoch>0 else 0.0
+        val_prec = float(val_prec/batches_this_epoch) if batches_this_epoch>0 else 0.0
+        val_rec = float(val_rec/batches_this_epoch) if batches_this_epoch>0 else 0.0
+        val_fmacro = float(val_fmacro/batches_this_epoch) if batches_this_epoch>0 else 0.0
+
+        val_metrics["acc"] = val_acc
+        val_metrics["prec"] = val_prec
+        val_metrics["rec"] = val_rec
+        val_metrics["fmacro"] = val_fmacro
         # Now restore the original parameter values.
         if self._moving_average is not None:
             self._moving_average.restore()
 
-        return val_loss, batches_this_epoch
+        return val_loss, batches_this_epoch, val_metrics
 
     def train(self) -> Dict[str, Any]:
         """
@@ -500,10 +540,10 @@ class Trainer(TrainerBase):
             if self._validation_data is not None:
                 with torch.no_grad():
                     # We have a validation set, so compute all the metrics on it.
-                    val_loss, num_batches = self._validation_loss()
-                    val_metrics = training_util.get_metrics(
-                        self.model, val_loss, num_batches, reset=True
-                    )
+                    val_loss, num_batches, val_metrics = self._validation_loss()
+                    # val_metrics = training_util.get_metrics(
+                    #     self.model
+                    # )
 
                     # Check validation metric for early stopping
                     this_epoch_val_metric = val_metrics[self._validation_metric]
