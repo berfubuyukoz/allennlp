@@ -477,7 +477,7 @@ class Trainer(TrainerBase):
             val_acc+=val_metrics['acc']
             val_prec+=val_metrics['prec']
             val_rec+=val_metrics['rec']
-            val_fmacro+=val_fmacro['fmacro']
+            val_fmacro+=val_metrics['fmacro']
 
 
         val_acc = float(val_acc/batches_this_epoch) if batches_this_epoch>0 else 0.0
