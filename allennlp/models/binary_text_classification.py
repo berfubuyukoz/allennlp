@@ -53,8 +53,8 @@ class TextClassifier(Model):
         labels_list = labels.squeeze(-1).cpu().data.numpy()
         predicted_labels = self.output_dict['predicted_labels']
         predicted_labels_as_int = [int(l) for l in predicted_labels]
-        acc = accuracy_score(predicted_labels_as_int, labels_list)
-        prf = precision_recall_fscore_support(predicted_labels_as_int, labels_list, average='macro')
+        acc = accuracy_score(labels_list, predicted_labels_as_int)
+        prf = precision_recall_fscore_support(labels_list, predicted_labels_as_int, average='macro')
         metrics = {}
         metrics['acc'] = acc
         metrics['prec'] = prf[0]
