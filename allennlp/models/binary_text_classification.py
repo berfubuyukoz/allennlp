@@ -29,7 +29,7 @@ class TextClassifier(Model):
 
     def forward(self,
                 text: Dict[str, torch.LongTensor],
-                label: torch.LongTensor = None
+                label: torch.LongTensor = None,
                 ) -> Dict[str, torch.Tensor]:
         embeddings = self.word_embeddings(text)
         mask = get_text_field_mask(text)
@@ -100,9 +100,10 @@ class TextClassifier(Model):
 
     def decode(self):
         probabilities = self.output_dict['probabilities']
-        predictions = torch.argmax(probabilities, dim=1)
+        condifences, predictions = torch.max(probabilities, 1)
         # predicted_labels = [self.vocab.get_token_from_index(x, namespace="labels")
         #           for x in predictions]
         self.output_dict['predicted_labels'] = predictions
+        self.output_dict['confidences'] = condifences
         metrics = self.get_metrics()
         self.output_dict['metrics'] = metrics

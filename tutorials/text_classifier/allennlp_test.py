@@ -29,7 +29,7 @@
 # weight_file = "https://allennlp.s3.amazonaws.com/models/elmo/2x4096_512_2048cnn_2xhighway/elmo_2x4096_512_2048cnn_2xhighway_weights.hdf5"
 # FINETUNE_EMBEDDINGS = False
 
-"""" ======================================================TRAIN=================================================== """
+"""" ======================================================TEST=================================================== """
 label_cols = ["0", "1"]
 
 import sys
@@ -53,6 +53,18 @@ from allennlp.data.dataset_readers import ProtestNewsDatasetReader, SentimentDat
 from tutorials.text_classifier.config import Config
 from allennlp.models import TextClassifier
 
+options_file = "https://allennlp.s3.amazonaws.com/models/elmo/2x4096_512_2048cnn_2xhighway/elmo_2x4096_512_2048cnn_2xhighway_options.json"
+weight_file = "https://allennlp.s3.amazonaws.com/models/elmo/2x4096_512_2048cnn_2xhighway/elmo_2x4096_512_2048cnn_2xhighway_weights.hdf5"
+FINETUNE_EMBEDDINGS = True
+
+test_file = '/content/drive/"My Drive"/thesis/new/data/china/transformers_formatted/test.json'
+model_dir =  '/content/drive/"My Drive"/thesis/new/allennlp_models/elmo/finetune/elmo_finetune_no_lstm_india_1'
+
+finetuned_weights_file =  '/content/drive/"My Drive"/thesis/new/allennlp_models/elmo/finetune/elmo_finetune_no_lstm_india_1/best.th'
+vocab_folder = '/content/drive/"My Drive"/thesis/new/allennlp_models/elmo/finetune/elmo_finetune_no_lstm_india_1/vocabulary'
+predictions_file = 'ctest_predictions'
+scores_file = 'ctest_scores'
+
 parser = argparse.ArgumentParser()
 ## Required parameters
 parser.add_argument("--indexer_type", default=None, type=str, required=True,
@@ -69,26 +81,16 @@ parser.add_argument("--train_file_path", default=None, type=str, required=True,
                     help="train file path")
 parser.add_argument("--validation_file_path", default=None, type=str, required=True,
                     help="validation file path")
-parser.add_argument("--test_file_path", default=None, type=str, required=True,
-                    help="test file path")
-parser.add_argument("--ctest_file_path", default=None, type=str, required=True,
-                    help="ctest file path")
 parser.add_argument("--vocab_folder_name", default=None, type=str, required=True,
                     help="folder to save vocab")
 parser.add_argument("--out_dir_path", default=None, type=str, required=True,
                     help="out dir")
-parser.add_argument("--test_predictions_out_file_name", default=None, type=str, required=True,
-                    help="test predictions out dir")
-parser.add_argument("--test_scores_out_file_name", default=None, type=str, required=True,
-                    help="test scores out dir")
 
 ## Paras having default values
 parser.add_argument("--seed", default=42, type=int, required=False,
                     help="seed for randomization")
-parser.add_argument("--batch_size", default=64, type=int, required=False,
+parser.add_argument("--batch_size", default=32, type=int, required=False,
                     help="batch size")
-parser.add_argument("--eval_batch_size", default=8, type=int, required=False,
-                    help="eval batch size")
 parser.add_argument("--learning_rate", default=5e-5, type=float, required=False,
                     help="learning rate")
 parser.add_argument("--epochs", default=3, type=int, required=False,
@@ -121,7 +123,6 @@ def tokenizer(x: str):
 config = Config(
     seed=args.seed,
     batch_size=args.batch_size,
-    eval_batch_size=args.eval_batch_size,
     lr=args.learning_rate,
     epochs=args.epochs,
     hidden_sz=args.hidden_sz,
@@ -162,11 +163,6 @@ iterator = BucketIterator(batch_size=config.batch_size,
                           )
 iterator.index_with(vocab)
 
-val_iterator = BucketIterator(batch_size=config.eval_batch_size,
-                          sorting_keys=[("text", "num_tokens")],
-                          )
-val_iterator.index_with(vocab)
-
 
 if args.embedding_type == 'glove':
     param_dict = {"pretrained_file": "(https://nlp.stanford.edu/data/glove.6B.zip)#glove.6B.300d.txt",
@@ -205,9 +201,6 @@ trainer = Trainer(
     model=model,
     optimizer=optimizer,
     iterator=iterator,
-    validation_iterator=val_iterator,
-    test_out_file_name=args.test_predictions_out_file_name,
-    test_scores_out_file_name=args.test_scores_out_file_name,
     train_dataset=train_ds,
     validation_dataset=val_ds,
     validation_metric=args.validation_metric,
@@ -216,10 +209,3 @@ trainer = Trainer(
 )
 
 metrics = trainer.train()
-best_model = trainer.model
-
-test_ds = reader.read(args.test_file_path)
-test_metrics, test_predictions = trainer.evaluate(test_ds)
-
-ctest_ds = reader.read(args.ctest_file_path)
-ctest_metrics, ctest_predictions = trainer.evaluate(ctest_ds)

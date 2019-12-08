@@ -26,6 +26,8 @@ from allennlp.training.tensorboard_writer import TensorboardWriter
 from allennlp.training.trainer_base import TrainerBase
 from allennlp.training import util as training_util
 from allennlp.training.moving_average import MovingAverage
+import pandas as pd
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +47,8 @@ class Trainer(TrainerBase):
         shuffle: bool = True,
         num_epochs: int = 20,
         serialization_dir: Optional[str] = None,
+        test_out_file_name: Optional[str] = None,
+        test_scores_out_file_name: Optional[str] = None,
         num_serialized_models_to_keep: int = 20,
         keep_serialized_model_every_num_seconds: int = None,
         checkpointer: Checkpointer = None,
@@ -174,9 +178,13 @@ class Trainer(TrainerBase):
         """
         super().__init__(serialization_dir, cuda_device)
 
+        self._test_out_file_name = test_out_file_name
+        self._test_scores_out_file_name = test_scores_out_file_name
+
         # I am not calling move_to_gpu here, because if the model is
         # not already on the GPU then the optimizer is going to be wrong.
         self.model = model
+        self.max_val_score = float("-inf")
 
         self.iterator = iterator
         self._validation_iterator = validation_iterator
@@ -321,6 +329,13 @@ class Trainer(TrainerBase):
         epoch_prec=0
         epoch_rec=0
         epoch_fmacro=0
+        epoch_acc_sk=0
+        epoch_prec_sk=0
+        epoch_rec_sk=0
+        epoch_fmacro_sk=0
+        epoch_pos_prec=0
+        epoch_pos_rec=0
+        epoch_pos_fmacro=0
         for batch_group in train_generator_tqdm:
             batches_this_epoch += 1
             self._batch_num_total += 1
@@ -376,6 +391,13 @@ class Trainer(TrainerBase):
             epoch_prec += metrics['prec']
             epoch_rec += metrics['rec']
             epoch_fmacro += metrics['fmacro']
+            epoch_acc_sk += metrics['acc_sk']
+            epoch_prec_sk += metrics['prec_sk']
+            epoch_rec_sk += metrics['rec_sk']
+            epoch_fmacro_sk += metrics['fmacro_sk']
+            epoch_pos_prec+=metrics['pos_prec']
+            epoch_pos_rec+=metrics['pos_rec']
+            epoch_pos_fmacro+=metrics['pos_fmacro']
             description = training_util.description_from_metrics(metrics)
 
             train_generator_tqdm.set_description(description, refresh=False)
@@ -400,19 +422,27 @@ class Trainer(TrainerBase):
                     self._tensorboard.add_train_scalar("current_batch_size", cur_batch)
                     self._tensorboard.add_train_scalar("mean_batch_size", average)
 
-            # Save model if needed.
-            if self._model_save_interval is not None and (
-                time.time() - last_save_time > self._model_save_interval
-            ):
-                last_save_time = time.time()
-                self._save_checkpoint(
-                    "{0}.{1}".format(epoch, training_util.time_to_str(int(last_save_time)))
-                )
+
+            # # Save model if needed.
+            # if self._model_save_interval is not None and (
+            #     time.time() - last_save_time > self._model_save_interval
+            # ):
+            #     last_save_time = time.time()
+            #     self._save_checkpoint(
+            #         "{0}.{1}".format(epoch, training_util.time_to_str(int(last_save_time)))
+            #     )
 
         epoch_acc = float(epoch_acc/num_training_batches) if num_training_batches>0 else 0.0
         epoch_prec = float(epoch_prec/num_training_batches) if num_training_batches>0 else 0.0
         epoch_rec = float(epoch_rec/num_training_batches) if num_training_batches>0 else 0.0
         epoch_fmacro = float(epoch_fmacro/num_training_batches) if num_training_batches>0 else 0.0
+        epoch_pos_prec = float(epoch_pos_prec / num_training_batches) if num_training_batches > 0 else 0.0
+        epoch_pos_rec = float(epoch_pos_rec / num_training_batches) if num_training_batches > 0 else 0.0
+        epoch_pos_fmacro = float(epoch_pos_fmacro / num_training_batches) if num_training_batches > 0 else 0.0
+        epoch_acc_sk = float(epoch_acc_sk / num_training_batches) if num_training_batches > 0 else 0.0
+        epoch_prec_sk = float(epoch_prec_sk / num_training_batches) if num_training_batches > 0 else 0.0
+        epoch_rec_sk = float(epoch_rec_sk / num_training_batches) if num_training_batches > 0 else 0.0
+        epoch_fmacro_sk = float(epoch_fmacro_sk / num_training_batches) if num_training_batches > 0 else 0.0
         epoch_loss = float(train_loss/num_training_batches) if num_training_batches>0 else 0.0
 
         metrics = {}
@@ -420,12 +450,156 @@ class Trainer(TrainerBase):
         metrics['acc'] = epoch_acc
         metrics['prec'] = epoch_prec
         metrics['rec'] = epoch_rec
-        metrics["fmacro"] = epoch_fmacro    
+        metrics["fmacro"] = epoch_fmacro
+        metrics['pos_prec'] = epoch_pos_prec
+        metrics['pos_rec'] = epoch_pos_rec
+        metrics["pos_fmacro"] = epoch_pos_fmacro
+        metrics['acc_sk'] = epoch_acc_sk
+        metrics['prec_sk'] = epoch_prec_sk
+        metrics['rec_sk'] = epoch_rec_sk
+        metrics["fmacro_sk"] = epoch_fmacro_sk
         # metrics = training_util.get_metrics(self.model)
         metrics["cpu_memory_MB"] = peak_cpu_usage
         for (gpu_num, memory) in gpu_usage:
             metrics["gpu_" + str(gpu_num) + "_memory_MB"] = memory
         return metrics
+
+    def _evaluation_loss(self, test_data) -> Tuple[Dict, pd.DataFrame]:
+        """
+        Computes the validation loss. Returns it and the number of batches.
+        """
+        logger.info("testing")
+
+        self.model.eval()
+
+        # Replace parameter values with the shadow values from the moving averages.
+        if self._moving_average is not None:
+            self._moving_average.assign_average_value()
+
+        if self._validation_iterator is not None:
+            test_iterator = self._validation_iterator
+        else:
+            test_iterator = self.iterator
+
+        num_gpus = len(self._cuda_devices)
+
+        raw_test_generator = test_iterator(test_data, num_epochs=1, shuffle=False)
+        test_generator = lazy_groups_of(raw_test_generator, num_gpus)
+        num_test_batches = math.ceil(
+            test_iterator.get_num_batches(test_data) / num_gpus
+        )
+        test_generator_tqdm = Tqdm.tqdm(test_generator, total=num_test_batches)
+        batches_this_epoch = 0
+        val_loss = 0
+        val_acc=0
+        val_prec=0
+        val_rec=0
+        val_fmacro=0
+        val_pos_prec = 0
+        val_pos_rec = 0
+        val_pos_fmacro = 0
+        val_acc_sk=0
+        val_prec_sk=0
+        val_rec_sk=0
+        val_fmacro_sk=0
+
+        test_text_ids = []
+        test_texts = []
+        test_predicted_labels = []
+        test_actual_labels = []
+        test_confidences = []
+        for batch_group in test_generator_tqdm:
+
+            loss = self.batch_loss(batch_group, for_training=False)
+            if loss is not None:
+                # You shouldn't necessarily have to compute a loss for validation, so we allow for
+                # `loss` to be None.  We need to be careful, though - `batches_this_epoch` is
+                # currently only used as the divisor for the loss function, so we can safely only
+                # count those batches for which we actually have a loss.  If this variable ever
+                # gets used for something else, we might need to change things around a bit.
+                batches_this_epoch += 1
+                val_loss += loss.detach().cpu().numpy()
+
+            # Update the description with the latest metrics
+            val_metrics = training_util.get_metrics(self.model)
+            description = training_util.description_from_metrics(val_metrics)
+            test_generator_tqdm.set_description(description, refresh=False)
+            val_acc+=val_metrics['acc']
+            val_prec+=val_metrics['prec']
+            val_rec+=val_metrics['rec']
+            val_fmacro+=val_metrics['fmacro']
+            val_pos_prec += val_metrics['pos_prec']
+            val_pos_rec += val_metrics['pos_rec']
+            val_pos_fmacro += val_metrics['pos_fmacro']
+            val_acc_sk+=val_metrics['acc_sk']
+            val_prec_sk+=val_metrics["prec_sk"]
+            val_rec_sk+=val_metrics['rec_sk']
+            val_fmacro_sk+=val_metrics["fmacro_sk"]
+
+            assert not self._multiple_gpu
+
+            assert len(batch_group) == 1
+            batch = batch_group[0]
+            batch = nn_util.move_to_device(batch, self._cuda_devices[0])
+            text_ids = batch[2]
+            text_ids = [c.item() for c in text_ids]
+            print("text ids: ", text_ids)
+            texts = batch[0]
+            texts = [c.item() for c in texts]
+            print("texts: ", texts)
+            actual_labels = batch[1]
+            actual_labels = [c.item() for c in actual_labels]
+            print("actual labels: ", actual_labels)
+
+            predictions = self.model.output_dict['predicted_labels']
+            confidences = self.model.output_dict['confidences']
+            predictions = [c.item() for c in predictions]
+            confidences = [c.item() for c in confidences]
+
+            print("predictions: ", predictions)
+            print("confidences: ", confidences)
+
+            test_text_ids.append(text_ids)
+            test_texts.append(texts)
+            test_actual_labels.append(actual_labels)
+            test_predicted_labels.append(predictions)
+            test_confidences.append(confidences)
+
+        val_loss = float(val_loss/num_test_batches) if num_test_batches>0 else 0.0
+        val_acc = float(val_acc/num_test_batches) if num_test_batches>0 else 0.0
+        val_prec = float(val_prec/num_test_batches) if num_test_batches>0 else 0.0
+        val_rec = float(val_rec/num_test_batches) if num_test_batches>0 else 0.0
+        val_fmacro = float(val_fmacro/num_test_batches) if num_test_batches>0 else 0.0
+        val_pos_prec = float(val_pos_prec / num_test_batches) if num_test_batches > 0 else 0.0
+        val_pos_rec = float(val_pos_rec / num_test_batches) if num_test_batches > 0 else 0.0
+        val_pos_fmacro = float(val_pos_fmacro / num_test_batches) if num_test_batches > 0 else 0.
+        val_fmacro_sk = float(val_fmacro_sk / num_test_batches) if num_test_batches > 0 else 0.0
+        val_acc_sk = float(val_acc_sk / num_test_batches) if num_test_batches > 0 else 0.0
+        val_prec_sk = float(val_prec_sk / num_test_batches) if num_test_batches > 0 else 0.0
+        val_rec_sk = float(val_rec_sk / num_test_batches) if num_test_batches > 0 else 0.0
+
+        val_metrics["acc"] = val_acc
+        val_metrics["prec"] = val_prec
+        val_metrics["rec"] = val_rec
+        val_metrics["fmacro"] = val_fmacro
+        val_metrics["pos_prec"] = val_pos_prec
+        val_metrics["pos_rec"] = val_pos_rec
+        val_metrics["pos_fmacro"] = val_pos_fmacro
+        val_metrics['acc_sk'] = val_acc_sk
+        val_metrics["prec_sk"] = val_prec_sk
+        val_metrics['rec_sk'] = val_rec_sk
+        val_metrics["fmacro_sk"] = val_fmacro_sk
+        # Now restore the original parameter values.
+        if self._moving_average is not None:
+            self._moving_average.restore()
+
+        prediction_content = zip(test_text_ids, test_texts,
+                                 test_actual_labels, test_predicted_labels, test_confidences)
+        predictions_df = pd.DataFrame(prediction_content,
+                                      columns=['id', 'text', 'true_label', 'prediction', 'confidence'])
+
+
+        return val_metrics, predictions_df
 
     def _validation_loss(self) -> Tuple[float, int]:
         """
@@ -458,6 +632,13 @@ class Trainer(TrainerBase):
         val_prec=0
         val_rec=0
         val_fmacro=0
+        val_pos_prec = 0
+        val_pos_rec = 0
+        val_pos_fmacro = 0
+        val_acc_sk=0
+        val_prec_sk=0
+        val_rec_sk=0
+        val_fmacro_sk=0
         for batch_group in val_generator_tqdm:
 
             loss = self.batch_loss(batch_group, for_training=False)
@@ -478,17 +659,38 @@ class Trainer(TrainerBase):
             val_prec+=val_metrics['prec']
             val_rec+=val_metrics['rec']
             val_fmacro+=val_metrics['fmacro']
+            val_pos_prec += val_metrics['pos_prec']
+            val_pos_rec += val_metrics['pos_rec']
+            val_pos_fmacro += val_metrics['pos_fmacro']
+            val_acc_sk+=val_metrics['acc_sk']
+            val_prec_sk+=val_metrics["prec_sk"]
+            val_rec_sk+=val_metrics['rec_sk']
+            val_fmacro_sk+=val_metrics["fmacro_sk"]
 
         val_loss = float(val_loss/num_validation_batches) if num_validation_batches>0 else 0.0
         val_acc = float(val_acc/num_validation_batches) if num_validation_batches>0 else 0.0
         val_prec = float(val_prec/num_validation_batches) if num_validation_batches>0 else 0.0
         val_rec = float(val_rec/num_validation_batches) if num_validation_batches>0 else 0.0
         val_fmacro = float(val_fmacro/num_validation_batches) if num_validation_batches>0 else 0.0
+        val_pos_prec = float(val_pos_prec / num_validation_batches) if num_validation_batches > 0 else 0.0
+        val_pos_rec = float(val_pos_rec / num_validation_batches) if num_validation_batches > 0 else 0.0
+        val_pos_fmacro = float(val_pos_fmacro / num_validation_batches) if num_validation_batches > 0 else 0.
+        val_fmacro_sk = float(val_fmacro_sk / num_validation_batches) if num_validation_batches > 0 else 0.0
+        val_acc_sk = float(val_acc_sk / num_validation_batches) if num_validation_batches > 0 else 0.0
+        val_prec_sk = float(val_prec_sk / num_validation_batches) if num_validation_batches > 0 else 0.0
+        val_rec_sk = float(val_rec_sk / num_validation_batches) if num_validation_batches > 0 else 0.0
 
         val_metrics["acc"] = val_acc
         val_metrics["prec"] = val_prec
         val_metrics["rec"] = val_rec
         val_metrics["fmacro"] = val_fmacro
+        val_metrics["pos_prec"] = val_pos_prec
+        val_metrics["pos_rec"] = val_pos_rec
+        val_metrics["pos_fmacro"] = val_pos_fmacro
+        val_metrics['acc_sk'] = val_acc_sk
+        val_metrics["prec_sk"] = val_prec_sk
+        val_metrics['rec_sk'] = val_rec_sk
+        val_metrics["fmacro_sk"] = val_fmacro_sk
         # Now restore the original parameter values.
         if self._moving_average is not None:
             self._moving_average.restore()
@@ -513,7 +715,6 @@ class Trainer(TrainerBase):
 
         logger.info("Beginning training.")
 
-        train_metrics: Dict[str, float] = {}
         val_metrics: Dict[str, float] = {}
         this_epoch_val_metric: float = None
         metrics: Dict[str, Any] = {}
@@ -546,6 +747,12 @@ class Trainer(TrainerBase):
                     #     self.model
                     # )
                     print("Epoch val metrics: ", val_metrics)
+                    current_val_score = val_metrics["fmacro"]
+                    if self.max_val_score < current_val_score:
+                        print("Saving best model. prev max val score: {}, current max val score: {}".format(self.max_val_score, current_val_score))
+                        self._save_checkpoint(epoch,is_best_so_far=True)
+                        self.max_val_score = current_val_score
+
                     # Check validation metric for early stopping
                     this_epoch_val_metric = val_metrics[self._validation_metric]
                     self._metric_tracker.add_metric(this_epoch_val_metric)
@@ -591,7 +798,7 @@ class Trainer(TrainerBase):
             if self._momentum_scheduler:
                 self._momentum_scheduler.step(this_epoch_val_metric, epoch)
 
-            self._save_checkpoint(epoch)
+            # self._save_checkpoint(epoch)
 
             epoch_elapsed_time = time.time() - epoch_start_time
             logger.info("Epoch duration: %s", datetime.timedelta(seconds=epoch_elapsed_time))
@@ -613,10 +820,20 @@ class Trainer(TrainerBase):
         best_model_state = self._checkpointer.best_model_state()
         if best_model_state:
             self.model.load_state_dict(best_model_state)
-
         return metrics
 
-    def _save_checkpoint(self, epoch: Union[int, str]) -> None:
+    def evaluate(self, test_dataset):
+        assert (self._serialization_dir is not None) and (self._test_out_file_name is not None) and (self._test_scores_out_file_name is not None)
+        with torch.no_grad():
+            # We have a validation set, so compute all the metrics on it.
+            val_metrics, test_out_df = self._evaluation_loss(test_dataset)
+            test_out_df.to_excel(os.path.join(self._serialization_dir, self._test_out_file_name))
+
+            with open(os.path.join(self._serialization_dir, self._test_scores_out_file_name), 'w') as fp:
+                # fp.write(history_as_json_str)
+                json.dump(val_metrics, fp, indent=4)
+
+    def _save_checkpoint(self, epoch: Union[int, str], is_best_so_far=False) -> None:
         """
         Saves a checkpoint of the model to self._serialization_dir.
         Is a no-op if self._serialization_dir is None.
@@ -645,11 +862,12 @@ class Trainer(TrainerBase):
         if self._momentum_scheduler is not None:
             training_states["momentum_scheduler"] = self._momentum_scheduler.state_dict()
 
+
         self._checkpointer.save_checkpoint(
             model_state=self.model.state_dict(),
             epoch=epoch,
             training_states=training_states,
-            is_best_so_far=self._metric_tracker.is_best_so_far(),
+            is_best_so_far=is_best_so_far if is_best_so_far else self._metric_tracker.is_best_so_far(),
         )
 
         # Restore the original values for parameters so that training will not be affected.
