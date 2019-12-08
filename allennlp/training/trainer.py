@@ -47,8 +47,6 @@ class Trainer(TrainerBase):
         shuffle: bool = True,
         num_epochs: int = 20,
         serialization_dir: Optional[str] = None,
-        test_out_file_name: Optional[str] = None,
-        test_scores_out_file_name: Optional[str] = None,
         num_serialized_models_to_keep: int = 20,
         keep_serialized_model_every_num_seconds: int = None,
         checkpointer: Checkpointer = None,
@@ -177,9 +175,6 @@ class Trainer(TrainerBase):
             model if we load it later. But this may cause problems if you restart the training from checkpoint.
         """
         super().__init__(serialization_dir, cuda_device)
-
-        self._test_out_file_name = test_out_file_name
-        self._test_scores_out_file_name = test_scores_out_file_name
 
         # I am not calling move_to_gpu here, because if the model is
         # not already on the GPU then the optimizer is going to be wrong.
@@ -823,15 +818,11 @@ class Trainer(TrainerBase):
         return metrics
 
     def evaluate(self, test_dataset):
-        assert (self._serialization_dir is not None) and (self._test_out_file_name is not None) and (self._test_scores_out_file_name is not None)
+        assert (self._serialization_dir is not None)
         with torch.no_grad():
             # We have a validation set, so compute all the metrics on it.
             val_metrics, test_out_df = self._evaluation_loss(test_dataset)
-            test_out_df.to_excel(os.path.join(self._serialization_dir, self._test_out_file_name))
-
-            with open(os.path.join(self._serialization_dir, self._test_scores_out_file_name), 'w') as fp:
-                # fp.write(history_as_json_str)
-                json.dump(val_metrics, fp, indent=4)
+        return val_metrics, test_out_df
 
     def _save_checkpoint(self, epoch: Union[int, str], is_best_so_far=False) -> None:
         """

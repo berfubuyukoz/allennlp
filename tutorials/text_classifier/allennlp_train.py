@@ -32,9 +32,10 @@
 """" ======================================================TRAIN=================================================== """
 label_cols = ["0", "1"]
 
+import os
 import sys
 sys.path.insert(0, "allennlp")
-
+import json
 import torch
 import torch.optim as optim
 import torch.nn.functional as F
@@ -52,6 +53,7 @@ from allennlp.modules.seq2vec_encoders import PytorchSeq2VecWrapper, BagOfEmbedd
 from allennlp.data.dataset_readers import ProtestNewsDatasetReader, SentimentDatasetReader
 from tutorials.text_classifier.config import Config
 from allennlp.models import TextClassifier
+from datetime import datetime
 
 parser = argparse.ArgumentParser()
 ## Required parameters
@@ -77,10 +79,6 @@ parser.add_argument("--vocab_folder_name", default=None, type=str, required=True
                     help="folder to save vocab")
 parser.add_argument("--out_dir_path", default=None, type=str, required=True,
                     help="out dir")
-parser.add_argument("--test_predictions_out_file_name", default=None, type=str, required=True,
-                    help="test predictions out dir")
-parser.add_argument("--test_scores_out_file_name", default=None, type=str, required=True,
-                    help="test scores out dir")
 
 ## Paras having default values
 parser.add_argument("--seed", default=42, type=int, required=False,
@@ -200,14 +198,16 @@ else:
 
 optimizer = optim.Adam(model.parameters(), lr=config.lr)
 
+now = datetime.now()
+train_timestamp = datetime.timestamp(now)
+out_dir_path = args.out_dir_path + '_' + str(train_timestamp)
+
 trainer = Trainer(
     serialization_dir=args.out_dir_path,
     model=model,
     optimizer=optimizer,
     iterator=iterator,
     validation_iterator=val_iterator,
-    test_out_file_name=args.test_predictions_out_file_name,
-    test_scores_out_file_name=args.test_scores_out_file_name,
     train_dataset=train_ds,
     validation_dataset=val_ds,
     validation_metric=args.validation_metric,
@@ -220,6 +220,14 @@ best_model = trainer.model
 
 test_ds = reader.read(args.test_file_path)
 test_metrics, test_predictions = trainer.evaluate(test_ds)
+test_predictions.to_excel(os.path.join(out_dir_path, 'test_predictions.xlsx'))
+with open(os.path.join(out_dir_path, "test_scores"), 'w') as fp:
+    # fp.write(history_as_json_str)
+    json.dump(test_metrics, fp, indent=4)
 
 ctest_ds = reader.read(args.ctest_file_path)
 ctest_metrics, ctest_predictions = trainer.evaluate(ctest_ds)
+ctest_predictions.to_excel(os.path.join(out_dir_path, 'ctest_predictions.xlsx'))
+with open(os.path.join(out_dir_path, "ctest_scores"), 'w') as fp:
+    # fp.write(history_as_json_str)
+    json.dump(ctest_metrics, fp, indent=4)
