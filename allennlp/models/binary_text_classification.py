@@ -49,7 +49,7 @@ class TextClassifier(Model):
         self.labels = label
 
     def _confusion(self, truth, predictions):
-        confusion_matrix = torch.zeros(self.args.nclasses, self.args.nclasses)
+        confusion_matrix = torch.zeros(2, 2)
         for t, p in zip(truth.view(-1), predictions.view(-1)):
                 confusion_matrix[t.long(), p.long()] += 1
         
@@ -78,17 +78,21 @@ class TextClassifier(Model):
 
     def get_metrics(self) -> Dict[str, float]:
         labels = self.labels
-        # labels_list = labels.squeeze(-1).cpu().data.numpy()
-        # predicted_labels = self.output_dict['predicted_labels'].squeeze(-1).cpu().data.numpy()
+        labels_list = labels.squeeze(-1).cpu().data.numpy()
+        predicted_labels = self.output_dict['predicted_labels'].squeeze(-1).cpu().data.numpy()
         # predicted_labels_as_int = [int(l) for l in predicted_labels]
-        # acc = accuracy_score(labels_list, predicted_labels)
-        # prf = precision_recall_fscore_support(labels_list, predicted_labels, average='macro')
+        acc_sk = accuracy_score(labels_list, predicted_labels)
+        prf = precision_recall_fscore_support(labels_list, predicted_labels, average='macro')
         acc,prec,rec,fmacro, pos_prec, pos_rec, pos_fmacro = self._get_scores(labels, self.output_dict['predicted_labels'])
         metrics = {}
         metrics['acc'] = acc
+        metrics['acc_sk'] =acc_sk
         metrics['prec'] = prec
+        metrics['prec_sk'] = prf[0]
         metrics['rec'] = rec
+        metrics['rec_sk'] = prf[1]
         metrics['fmacro'] = fmacro
+        metrics['fmacro_sk'] = prf[2]
         metrics['pos_prec'] = pos_prec
         metrics['pos_rec'] = pos_rec
         metrics['pos_fmacro'] = pos_fmacro
