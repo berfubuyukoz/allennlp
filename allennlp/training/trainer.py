@@ -561,6 +561,7 @@ class Trainer(TrainerBase):
             test_predicted_labels.append(predictions)
             test_confidences.append(confidences)
 
+        print("num eval batches: ", num_test_batches)
         val_loss = float(val_loss/num_test_batches) if num_test_batches>0 else 0.0
         val_acc = float(val_acc/num_test_batches) if num_test_batches>0 else 0.0
         val_prec = float(val_prec/num_test_batches) if num_test_batches>0 else 0.0
