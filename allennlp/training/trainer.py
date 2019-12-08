@@ -499,7 +499,7 @@ class Trainer(TrainerBase):
         val_fmacro_sk=0
 
         # test_text_ids = []
-        test_texts = []
+        # test_texts = []
         test_predicted_labels = []
         test_actual_labels = []
         test_confidences = []
@@ -539,11 +539,12 @@ class Trainer(TrainerBase):
             # text_ids = batch[2]
             # text_ids = [c.item() for c in text_ids]
             # print("text ids: ", text_ids)
-            texts = batch['text']
+            # texts = batch['text']
             # texts = [c.item() for c in texts]
-            print("texts: ", texts)
+            # print("texts: ", texts)
             actual_labels = batch['label']
-            # actual_labels = [c.item() for c in actual_labels]
+            print("actual labels: ", actual_labels)
+            actual_labels = [c.item() for c in actual_labels]
             print("actual labels: ", actual_labels)
 
             predictions = self.model.output_dict['predicted_labels']
@@ -555,7 +556,7 @@ class Trainer(TrainerBase):
             print("confidences: ", confidences)
 
             # test_text_ids.append(text_ids)
-            test_texts.append(texts)
+            # test_texts.append(texts)
             test_actual_labels.append(actual_labels)
             test_predicted_labels.append(predictions)
             test_confidences.append(confidences)
@@ -588,10 +589,9 @@ class Trainer(TrainerBase):
         if self._moving_average is not None:
             self._moving_average.restore()
 
-        prediction_content = zip(test_texts,
-                                 test_actual_labels, test_predicted_labels, test_confidences)
+        prediction_content = zip(test_actual_labels, test_predicted_labels, test_confidences)
         predictions_df = pd.DataFrame(prediction_content,
-                                      columns=['text', 'true_label', 'prediction', 'confidence'])
+                                      columns=['true_label', 'prediction', 'confidence'])
 
 
         return val_metrics, predictions_df
