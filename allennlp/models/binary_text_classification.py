@@ -64,9 +64,7 @@ class TextClassifier(Model):
 
     def decode(self):
         probabilities = self.output_dict['probabilities']
-        print("probabilities: ", probabilities)
         predictions = torch.argmax(probabilities, dim=1)
-        print("predictions: ", predictions)
         # predicted_labels = [self.vocab.get_token_from_index(x, namespace="labels")
         #           for x in predictions]
         self.output_dict['predicted_labels'] = predictions

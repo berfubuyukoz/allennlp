@@ -527,7 +527,7 @@ class Trainer(TrainerBase):
         for epoch in range(epoch_counter, self._num_epochs):
             epoch_start_time = time.time()
             train_metrics = self._train_epoch(epoch)
-            print("Epoch metrics: ", train_metrics)
+            print("Epoch train metrics: ", train_metrics)
 
             # get peak of memory usage
             if "cpu_memory_MB" in train_metrics:
@@ -545,7 +545,7 @@ class Trainer(TrainerBase):
                     # val_metrics = training_util.get_metrics(
                     #     self.model
                     # )
-
+                    print("Epoch val metrics: ", val_metrics)
                     # Check validation metric for early stopping
                     this_epoch_val_metric = val_metrics[self._validation_metric]
                     self._metric_tracker.add_metric(this_epoch_val_metric)
