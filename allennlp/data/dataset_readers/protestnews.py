@@ -28,13 +28,13 @@ class ProtestNewsDatasetReader(DatasetReader):
     def get_id_column_name(self):
         return 'url'
     
-    def text_to_instance(self, text_id, text: str, label: str = None) -> Instance:
+    def text_to_instance(self, text: str, label: str = None) -> Instance:
         tokenized_text = [Token(x) for x in self.tokenizer(text)]
         text_field = TextField(tokenized_text, self.token_indexers)
         fields = {'text': text_field }
         if label is not None:
             fields['label'] = LabelField(label)
-        fields['id'] = MetadataField(text_id)
+        # fields['id'] = MetadataField(text_id)
         return Instance(fields)
 
     def _read(self, file_path):
@@ -54,5 +54,5 @@ class ProtestNewsDatasetReader(DatasetReader):
             id = ids[i]
             if '' in [str(id).strip(), text, label]: continue
             # yield self.text_to_instance(text,label)
-            instances.append(self.text_to_instance(id, text, label))
+            instances.append(self.text_to_instance(text, label))
         return instances

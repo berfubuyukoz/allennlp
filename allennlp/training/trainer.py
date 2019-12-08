@@ -271,8 +271,7 @@ class Trainer(TrainerBase):
             assert len(batch_group) == 1
             batch = batch_group[0]
             batch = nn_util.move_to_device(batch, self._cuda_devices[0])
-            print("batch type: ", type(batch))
-            self.model(**batch[:-1])
+            self.model(**batch)
 
         try:
             loss = self.model.output_dict["loss"]
@@ -499,7 +498,7 @@ class Trainer(TrainerBase):
         val_rec_sk=0
         val_fmacro_sk=0
 
-        test_text_ids = []
+        # test_text_ids = []
         test_texts = []
         test_predicted_labels = []
         test_actual_labels = []
@@ -537,13 +536,13 @@ class Trainer(TrainerBase):
             assert len(batch_group) == 1
             batch = batch_group[0]
             batch = nn_util.move_to_device(batch, self._cuda_devices[0])
-            text_ids = batch[2]
-            text_ids = [c.item() for c in text_ids]
-            print("text ids: ", text_ids)
-            texts = batch[0]
+            # text_ids = batch[2]
+            # text_ids = [c.item() for c in text_ids]
+            # print("text ids: ", text_ids)
+            texts = batch['text']
             texts = [c.item() for c in texts]
             print("texts: ", texts)
-            actual_labels = batch[1]
+            actual_labels = batch['label']
             actual_labels = [c.item() for c in actual_labels]
             print("actual labels: ", actual_labels)
 
@@ -555,7 +554,7 @@ class Trainer(TrainerBase):
             print("predictions: ", predictions)
             print("confidences: ", confidences)
 
-            test_text_ids.append(text_ids)
+            # test_text_ids.append(text_ids)
             test_texts.append(texts)
             test_actual_labels.append(actual_labels)
             test_predicted_labels.append(predictions)
@@ -589,10 +588,10 @@ class Trainer(TrainerBase):
         if self._moving_average is not None:
             self._moving_average.restore()
 
-        prediction_content = zip(test_text_ids, test_texts,
+        prediction_content = zip(test_texts,
                                  test_actual_labels, test_predicted_labels, test_confidences)
         predictions_df = pd.DataFrame(prediction_content,
-                                      columns=['id', 'text', 'true_label', 'prediction', 'confidence'])
+                                      columns=['text', 'true_label', 'prediction', 'confidence'])
 
 
         return val_metrics, predictions_df
