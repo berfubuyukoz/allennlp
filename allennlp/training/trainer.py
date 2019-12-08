@@ -822,6 +822,7 @@ class Trainer(TrainerBase):
         with torch.no_grad():
             # We have a validation set, so compute all the metrics on it.
             val_metrics, test_out_df = self._evaluation_loss(test_dataset)
+            print("Eval metrics: ", val_metrics)
         return val_metrics, test_out_df
 
     def _save_checkpoint(self, epoch: Union[int, str], is_best_so_far=False) -> None:
