@@ -409,11 +409,11 @@ class Trainer(TrainerBase):
                     "{0}.{1}".format(epoch, training_util.time_to_str(int(last_save_time)))
                 )
 
-        epoch_acc = float(epoch_acc/batches_this_epoch) if batches_this_epoch>0 else 0.0
-        epoch_prec = float(epoch_prec/batches_this_epoch) if batches_this_epoch>0 else 0.0
-        epoch_rec = float(epoch_rec/batches_this_epoch) if batches_this_epoch>0 else 0.0
-        epoch_fmacro = float(epoch_fmacro/batches_this_epoch) if batches_this_epoch>0 else 0.0
-        epoch_loss = float(train_loss/batches_this_epoch) if batches_this_epoch>0 else 0.0
+        epoch_acc = float(epoch_acc/num_training_batches) if num_training_batches>0 else 0.0
+        epoch_prec = float(epoch_prec/num_training_batches) if num_training_batches>0 else 0.0
+        epoch_rec = float(epoch_rec/num_training_batches) if num_training_batches>0 else 0.0
+        epoch_fmacro = float(epoch_fmacro/num_training_batches) if num_training_batches>0 else 0.0
+        epoch_loss = float(train_loss/num_training_batches) if num_training_batches>0 else 0.0
 
         metrics = {}
         metrics["loss"] = epoch_loss
@@ -479,11 +479,11 @@ class Trainer(TrainerBase):
             val_rec+=val_metrics['rec']
             val_fmacro+=val_metrics['fmacro']
 
-
-        val_acc = float(val_acc/batches_this_epoch) if batches_this_epoch>0 else 0.0
-        val_prec = float(val_prec/batches_this_epoch) if batches_this_epoch>0 else 0.0
-        val_rec = float(val_rec/batches_this_epoch) if batches_this_epoch>0 else 0.0
-        val_fmacro = float(val_fmacro/batches_this_epoch) if batches_this_epoch>0 else 0.0
+        val_loss = float(val_loss/num_validation_batches) if num_validation_batches>0 else 0.0
+        val_acc = float(val_acc/num_validation_batches) if num_validation_batches>0 else 0.0
+        val_prec = float(val_prec/num_validation_batches) if num_validation_batches>0 else 0.0
+        val_rec = float(val_rec/num_validation_batches) if num_validation_batches>0 else 0.0
+        val_fmacro = float(val_fmacro/num_validation_batches) if num_validation_batches>0 else 0.0
 
         val_metrics["acc"] = val_acc
         val_metrics["prec"] = val_prec
@@ -527,6 +527,7 @@ class Trainer(TrainerBase):
         for epoch in range(epoch_counter, self._num_epochs):
             epoch_start_time = time.time()
             train_metrics = self._train_epoch(epoch)
+            print("Epoch metrics: ", train_metrics)
 
             # get peak of memory usage
             if "cpu_memory_MB" in train_metrics:
