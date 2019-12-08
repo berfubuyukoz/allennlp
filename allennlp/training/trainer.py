@@ -271,7 +271,8 @@ class Trainer(TrainerBase):
             assert len(batch_group) == 1
             batch = batch_group[0]
             batch = nn_util.move_to_device(batch, self._cuda_devices[0])
-            self.model(**batch)
+            print("batch type: ", type(batch))
+            self.model(**batch[:-1])
 
         try:
             loss = self.model.output_dict["loss"]
