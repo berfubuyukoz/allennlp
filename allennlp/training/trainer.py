@@ -540,10 +540,10 @@ class Trainer(TrainerBase):
             # text_ids = [c.item() for c in text_ids]
             # print("text ids: ", text_ids)
             texts = batch['text']
-            texts = [c.item() for c in texts]
+            # texts = [c.item() for c in texts]
             print("texts: ", texts)
             actual_labels = batch['label']
-            actual_labels = [c.item() for c in actual_labels]
+            # actual_labels = [c.item() for c in actual_labels]
             print("actual labels: ", actual_labels)
 
             predictions = self.model.output_dict['predicted_labels']
